@@ -1,7 +1,7 @@
-#include <benchmark/benchmark.h>
 #include <array>
 #include <cstring>
 #include <stdlib.h>
+#include <iostream>
 
 unsigned char *utf8_check(unsigned char *s)
 {
@@ -43,7 +43,6 @@ unsigned char *utf8_check(unsigned char *s)
 
   return NULL;
 }
-constexpr int len = 6;
 
 #define IS_CONTINUATION_BYTE(code) (((code) >> 6) == 0x02)
 
@@ -147,7 +146,7 @@ static inline int ascii_u64(const uint8_t *data, int len)
     return orall < 0x80;
 }
 
-static size_t inline ob_well_formed_len_utf8mb4(
+static size_t ob_well_formed_len_utf8mb4(
                                          const char *b, const char *e,
                                          size_t pos, int *error)
 {
@@ -174,27 +173,6 @@ static size_t inline ob_well_formed_len_utf8mb4(
   
 }
 
-static size_t ob_well_formed_len_utf8mb4_org(
-                                         const char *b, const char *e,
-                                         size_t pos, int *error)
-{
-  
-  const char *b_start= b;
-  *error= 0;
-  while (pos)
-  {
-    int mb_len;
-    if ((mb_len= ob_valid_mbcharlen_utf8mb4((unsigned char*) b, (unsigned char*) e)) <= 0)
-    {
-      *error= b < e ? 1 : 0;
-      break;
-    }
-    b+= mb_len;
-    pos--;
-  }
-  return (size_t) (b - b_start);
-  
-}
 char data[1000][10000] = {1};
 
 static void prepare_utf8(int status) {
@@ -214,52 +192,22 @@ static void prepare_utf8(int status) {
 
             }
         }
+        data[i][5002] = 0xC0;
         data[i][9999] = '\0';
         
     }
 }
 
-static void prepare_data(benchmark::State& stat) {
-    prepare_utf8(1);
-    for (auto _: stat) {
-        
-    }
-}
 
 
-
-BENCHMARK(prepare_data);
-static void bench_ascii_fast_utf8(benchmark::State& state)
-{
+int main() {
+    prepare_utf8(2);
+    auto p = utf8_check((unsigned char*)data[1]);
     int error = 0;
-    for (auto _: state) {
-        for (int i = 0 ; i < 1000 ; i++){
-            ob_well_formed_len_utf8mb4(data[i], data[i]+10000, 10000, &error);
-        }
+    auto len = ob_well_formed_len_utf8mb4(data[1], data[1]+10000, 10000, &error);
+    if(p==NULL) std::cout<<"NULL"<<std::endl;
+    else {
+        std::cout<< (char*)p-data[1] <<std::endl;
     }
+    std::cout<<len<<std::endl;
 }
-BENCHMARK(bench_ascii_fast_utf8);
-static void bench_ascii_ob_utf8_org(benchmark::State& state)
-{
-    int error = 0;
-    for (auto _: state) {
-        for(int i = 0 ; i < 1000 ; i++){
-            ob_well_formed_len_utf8mb4_org(data[i], data[i]+10000, 10000, &error);
-        }
-        
-    }
-}
-BENCHMARK(bench_ascii_ob_utf8_org);
-
-static void bench_utf8_basic(benchmark::State& state)
-{
-    for (auto _: state) {
-        for(int i = 0 ; i < 1000 ; i++){
-            utf8_check((unsigned char*)data[i]);
-        }
-        
-    }
-}
-BENCHMARK(bench_utf8_basic);
-
-BENCHMARK_MAIN();
